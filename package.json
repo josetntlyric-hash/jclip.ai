@@ -1,0 +1,9 @@
+{
+  "name": "jclip-ai",
+  "version": "1.0.0",
+  "description": "Generador de clips de IA con YouTube, PayPal y múltiples accesos",
+  "main": "servidor.js",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
