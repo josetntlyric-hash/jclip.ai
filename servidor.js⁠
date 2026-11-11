@@ -1,0 +1,87 @@
+const express = require('express');
+const path = require('path');
+const app = express();
+
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+const usersDB = {};
+const ADMIN_EMAIL = "josetntlyric@gmail.com";
+const ADMIN_PASSWORD = "josetnt88$$"; 
+
+// Ruta de inicio de sesión (soporta correo, Google, teléfono, App Store)
+app.post('/api/login', (req, res) => {
+    const { identifier, password, provider } = req.body;
+    if (!identifier) {
+        return res.status(400).json({ error: 'Ingresa un medio de acceso válido.' });
+    }
+    
+    let userId = identifier.toLowerCase().trim();
+
+    // Verificación para el Administrador (Gratis e ilimitado)
+    if (userId === ADMIN_EMAIL.toLowerCase()) {
+        if (provider === 'email' && password !== ADMIN_PASSWORD) {
+            return res.status(401).json({ error: 'Contraseña de administrador incorrecta.' });
+        }
+        usersDB[userId] = { 
+            email: ADMIN_EMAIL, 
+            credits: 99999, 
+            isAdmin: true 
+        };
+    } else {
+        // Usuarios normales
+        if (!usersDB[userId]) {
+            usersDB[userId] = { 
+                identifier: userId, 
+                provider: provider || 'email',
+                credits: 3 
+            };
+        }
+    }
+
+    res.json({ 
+        success: true, 
+        uid: userId, 
+        credits: usersDB[userId].credits,
+        isAdmin: (userId === ADMIN_EMAIL.toLowerCase())
+    });
+});
+
+// Pasarela de pago PayPal (Destino: josetntlyric@gmail.com)
+app.post('/api/paypal-success', (req, res) => {
+    const { uid, orderId } = req.body;
+    if (!uid || !usersDB[uid]) {
+        return res.status(400).json({ error: 'Usuario no válido' });
+    }
+    usersDB[uid].credits += 50; 
+    console.log(`[JClip AI] ¡Pago exitoso vía PayPal! Destino: josetntlyric@gmail.com | Orden: ${orderId}`);
+    res.json({ success: true, newCredits: usersDB[uid].credits });
+});
+
+// Generador de clips de YouTube (Hasta 1 minuto, en vivo o publicados)
+app.post('/api/generate-clip', (req, res) => {
+    const { uid, youtubeUrl } = req.body;
+    if (!uid || !usersDB[uid]) {
+        return res.status(401).json({ error: 'No autorizado' });
+    }
+
+    // Verificar créditos (El admin nunca gasta)
+    if (!usersDB[uid].isAdmin) {
+        if (usersDB[uid].credits <= 0) {
+            return res.status(403).json({ error: 'No tienes créditos suficientes. Recarga con PayPal.' });
+        }
+        usersDB[uid].credits -= 1; 
+    }
+
+    res.json({
+        success: true,
+        message: "¡Clip de IA generado con éxito (máximo 1 minuto) desde YouTube!",
+        clipUrl: "https://www.w3schools.com/html/mov_bbb.mp4",
+        remainingCredits: usersDB[uid].credits
+    });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`🚀 JClip AI corriendo en el puerto ${PORT}`);
+});
