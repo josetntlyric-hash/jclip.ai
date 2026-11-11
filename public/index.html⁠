@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JClip AI - Generador de Clips con IA</title>
+    <style>
+        body { background-color: #0b0f19; color: #fff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .card { background: #111827; padding: 25px; border-radius: 12px; width: 100%; max-width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #1f2937; }
+        h2 { text-align: center; color: #38bdf8; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-size: 13px; color: #9ca3af; margin-bottom: 5px; }
+        input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #374151; background: #1f2937; color: #fff; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #3b82f6; border: none; border-radius: 6px; color: #fff; font-weight: bold; cursor: pointer; margin-top: 5px; }
+        button:hover { background: #2563eb; }
+        .social-login { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        .social-btn { background: #374151; font-size: 12px; }
+        #dashboard { display: none; }
+        .badge { background: #10b981; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <!-- PANTALLA DE ACCESO -->
+    <div class="card" id="loginCard">
+        <h2>⚡ JClip AI</h2>
+        <p style="text-align:center; font-size:13px; color:#9ca3af;">Clips de YouTube (Videos y Directos en Vivo - Máx. 1 Minuto)</p>
+        
+        <div class="input-group">
+            <label>Correo, Teléfono o Usuario:</label>
+            <input type="text" id="identifier" placeholder="josetntlyric@gmail.com o teléfono">
+        </div>
+        <div class="input-group">
+            <label>Contraseña (Para correo):</label>
+            <input type="password" id="password" placeholder="••••••••">
+        </div>
+        <button onclick="login()">Iniciar Sesión / Registrarse</button>
+
+        <div style="text-align:center; margin: 15px 0; font-size:12px; color:#6b7280;">O entra rápidamente con:</div>
+        <div class="social-login">
+            <button class="social-btn" onclick="socialLogin('Google')">Google</button>
+            <button class="social-btn" onclick="socialLogin('AppStore')">App Store / Apple</button>
+        </div>
+    </div>
+
+    <!-- PANEL PRINCIPAL DE LA APP -->
+    <div class="card" id="dashboard">
+        <h2>Panel JClip AI</h2>
+        <p>Usuario: <span id="userDisplay" style="color: #38bdf8;"></span> <span class="badge" id="adminBadge" style="display:none;">ADMIN</span></p>
+        <p>Créditos disponibles: <span id="creditsDisplay" style="font-weight:bold; color:#10b981;"></span></p>
+        <hr style="border-color: #374151;">
+
+        <div class="input-group">
+            <label>Enlace de YouTube (Video o Directo en Vivo):</label>
+            <input type="text" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=...">
+        </div>
+        <button onclick="generateClip()" style="background: linear-gradient(135deg, #10b981, #059669);">🎬 Generar Clip de 1 Minuto</button>
+        
+        <div id="resultArea" style="margin-top: 15px; font-size: 13px;"></div>
+        
+        <button onclick="simulatePayPal()" style="background: #f59e0b; margin-top: 20px;">💳 Recargar 50 créditos con PayPal</button>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        async function login() {
+            const identifier = document.getElementById('identifier').value;
+            const password = document.getElementById('password').value;
+            if(!identifier) return alert("Por favor ingresa tus datos de acceso.");
+
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identifier, password, provider: 'email' })
+            });
+            const data = await res.json();
+            
+            if(res.ok) {
+                currentUser = data.uid;
+                document.getElementById('userDisplay').textContent = data.uid;
+                document.getElementById('creditsDisplay').textContent = data.credits === 99999 ? "Ilimitados (Admin)" : data.credits;
+                if(data.isAdmin) document.getElementById('adminBadge').style.display = 'inline-block';
+                
+                document.getElementById('loginCard').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+            } else {
+                alert(data.error);
+            }
+        }
+
+        function socialLogin(provider) {
+            if(provider === 'Google') {
+                document.getElementById('identifier').value = "usuario_google@gmail.com";
+            } else {
+                document.getElementById('identifier').value = "usuario_apple@icloud.com";
+            }
+            login();
+        }
+
+        async function generateClip() {
+            const youtubeUrl = document.getElementById('youtubeUrl').value;
+            if(!youtubeUrl) return alert("Ingresa un enlace de YouTube válido.");
+
+            document.getElementById('resultArea').innerHTML = "⏳ Procesando YouTube y extrayendo clip de 1 minuto...";
+
+            const res = await fetch('/api/generate-clip', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: currentUser, youtubeUrl })
+            });
+            const data = await res.json();
+
+            if(res.ok) {
+                document.getElementById('creditsDisplay').textContent = data.remainingCredits === 99999 ? "Ilimitados (Admin)" : data.remainingCredits;
+                document.getElementById('resultArea').innerHTML = `✅ <b style="color:#10b981;">${data.message}</b><br><a href="${data.clipUrl}" target="_blank" style="color:#38bdf8;">📥 Descargar tu clip (1 min)</a>`;
+            } else {
+                document.getElementById('resultArea').innerHTML = `<span style="color:#f87171;">${data.error}</span>`;
+            }
+        }
+
+        async function simulatePayPal() {
+            const res = await fetch('/api/paypal-success', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: currentUser, orderId: 'PP-' + Math.random() })
+            });
+            const data = await res.json();
+            if(res.ok) {
+                document.getElementById('creditsDisplay').textContent = data.newCredits;
+                alert("¡Pago procesado con éxito vía PayPal (josetntlyric@gmail.com)! Se añadieron 50 créditos.");
+            }
+        }
+    </script>
+</body>
+</html>
